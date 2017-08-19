@@ -742,6 +742,8 @@ procedure select_vowel_target .sound .formants .textgrid
 		endif
 	endif
 	
+	selectObject: .sound
+	.voicePP = noprogress To PointProcess (periodic, cc): 75, 600
 	selectObject: .textgrid
 	.numPeaks = Get number of points: .peakTier
 	.numValleys = Get number of points: .valleyTier
@@ -987,8 +989,10 @@ procedure select_vowel_target .sound .formants .textgrid
 			.start = Get start time of interval: .vowelTier, .index
 			.end = Get end time of interval: .vowelTier, .index
 			# Last sanity checks on duration and intensity
-			# A vowel is at least 20 ms long
-			if .end - .start > 0.020
+			# A vowel is voiced
+			selectObject: .voicePP
+			.meanPeriod = Get mean period: .start, .end, 0.0001, 0.02, 1.3
+			if .meanPeriod <> undefined
 				selectObject: .sound
 				.sd = Get standard deviation: 1, .start, .end
 				# Is there enough sound to warrant a vowel? > -15dB
@@ -1000,7 +1004,7 @@ procedure select_vowel_target .sound .formants .textgrid
 		endif
 	endfor
 	
-	selectObject: .formantsBurg
+	selectObject: .formantsBurg, .voicePP
 	Remove
 	
 endproc
