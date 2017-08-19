@@ -107,8 +107,7 @@ phonemes ["ZH", "F", "ə", "F2"] = 1706.6
 
 
 form Source directiory
-#	sentence Source MandarinSounds.tsv
-	sentence Source uu.tsv
+	sentence Source MandarinSounds.tsv
 	choice Speaker_is_a 1
 		option Female
 		option Male
