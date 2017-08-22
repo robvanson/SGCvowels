@@ -50,8 +50,8 @@ for .f to .numFiles
 		demoShow()
 	endif
 	
-	@drawSourceVowelTarget: .audioList, .f, .sp$, .sound
-
+	@drawSourceVowelTarget: plot, .audioList, .f, .sp$, .sound
+pause
 	selectObject: .sound
 	Remove
 endfor
