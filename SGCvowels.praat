@@ -218,6 +218,26 @@ procedure numbers2pinyin .numberstext$
 	.pinyin$ = .intermediatePinyin$
 endproc
 
+# Not everyone add all the zeros for the neutral tones. Here we try to guess where
+# they would belong.
+procedure add_missing_neutral_tones .pinyin$
+	# Missing neutral tones
+	# Missing last tone
+	.pinyin$ = replace_regex$(.pinyin$, "([^0-9])$", "\10", 0)
+	# Easy cases V [^n]
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa]+)([^0-9neuioar])", "\10\2", 0)
+	# Complex case V r V
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa]+)(r[euioa]+)", "\10\2", 0)
+	# Complex case V r C
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa]+r)([^0-9euioa]+)", "\10\2", 0)
+	# Vng cases
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa]+ng)([^0-9])", "\10\2", 0)
+	# VnC cases C != g
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa]+n)([^0-9geuioa])", "\10\2", 0)
+	# VnV cases -> Maximal onset
+	.pinyin$ = replace_regex$(.pinyin$, "([euioa])(n[euioa])", "\10\2", 0)
+endproc
+
 include VowelTarget.praat
 include SelectVowels.praat
 include LanguageTargets.praat

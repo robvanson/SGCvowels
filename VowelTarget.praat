@@ -107,7 +107,7 @@ procedure plot_voweltriangle_and_target .wordList .wordNumber
 	@plot_targets: "Green", .gendert$, .f1_targets$, .f2_targets$, .f3_targets$
 endproc
 
-procedure drawSourceVowelTarget .wordList .wordNumber .sp$, .sound
+procedure drawSourceVowelTarget .wordList .wordNumber .sp$ .sound
 	@initialize_table_collumns: .wordList, "Character$;Audio$;Gender$;IPA$;Gender$;F1$;F2$;F3$;", "-"
 	selectObject: .wordList
 	.pinyinnum$ = Get value: .wordNumber, "Pinyin"
