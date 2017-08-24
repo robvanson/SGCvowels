@@ -128,7 +128,7 @@ while .continue
 	endif
 endwhile
 
-selectObject: .words
+selectObject: .words, sgc.pinyinIPA
 Remove
 
 #####################################################################

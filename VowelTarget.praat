@@ -244,12 +244,14 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 		endif
 	endwhile
 	# Actually plot the vowels
+	.radius = 1
 	if .plot and .targetnum > 0
 		if .f1_list [1] > 0
 			@vowel2point: .sp$, .f1_list [1], .f2_list [1]
 			.x = vowel2point.x
 			.y = vowel2point.y
-			demo Paint circle: .color$, .x, .y, 1
+			demo Paint circle: .color$, .x, .y, .radius
+			.radius *= 0.9
 		endif
 		demo Arrow size: 2
 		demo '.color$'
@@ -266,9 +268,11 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 					demo Draw arrow: .xlast, .ylast, .x, .y
 				else
 					demoShow()
-					demo Paint circle: .color$, .x, .y, 1
+					demo Paint circle: .color$, .x, .y, .radius
+					demo Paint circle: "White", .x, .y, .radius*(1-.radius)
 					demoShow()
 					.plotArrow = 1
+					.radius *= 0.9
 				endif
 			else
 				.plotArrow = 0
@@ -321,12 +325,13 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 		.f2_list [.t] = .f2
 	endwhile
 	.targetnum = .t
-
+	.radius = 1
 	if .f1_list [1] > 0
 		@vowel2point: .sp$, .f1_list [1], .f2_list [1]
 		.x = vowel2point.x
 		.y = vowel2point.y
-		demo Paint circle: .color$, .x, .y, 1
+		demo Paint circle: .color$, .x, .y, .radius
+		.radius *= 0.9
 	endif
 	demo Arrow size: 2
 	demo '.color$'
@@ -343,9 +348,11 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 				demo Draw arrow: .xlast, .ylast, .x, .y
 			else
 				demoShow()
-				demo Paint circle: .color$, .x, .y, 1
+				demo Paint circle: .color$, .x, .y, .radius
+				demo Paint circle: "White", .x, .y, .radius*(1-.radius)
 				demoShow()
 				.plotArrow = 1
+				.radius *= 0.9
 			endif
 		else
 			.plotArrow = 0
@@ -433,13 +440,42 @@ procedure plot_vowel_triangle .sp$
 	.x2 = vowel2point.x
 	.y2 = vowel2point.y
 	demo Draw line: .x1, .y1, .x2, .y2
-	demoShow()	
+	demoShow()
+	
+	# Other Pinyin vowels
+	# /o/
+	@write_vowel_label: .sp$, "o_side", "o"
+	@write_vowel_label: .sp$, "e_side", "e"
+	@write_vowel_label: .sp$, "y_side", "ü"
+
 	demo Solid line
 	demo Black
 endproc
 
+# Vowel Triangle labels
+procedure write_vowel_label .sp$ .phoneme$ .label$
+	.f1 = languageTargets.phonemes ["ZH", .sp$, .phoneme$, "F1"]
+	.f2 = languageTargets.phonemes ["ZH", .sp$, .phoneme$, "F2"]
+	@vowel2point: .sp$, .f1, .f2
+	.x = vowel2point.x
+	.y = vowel2point.y
+	.xAlign$ = "Left"
+	if .x < 50
+		.xAlign$ = "Right"
+	endif
+	.yAlign$ = "Half"
+	if .y > 90
+		.yAlign$ = "Bottom"
+	endif
+	
+	# Move out
+	demo Colour... 0.6
+	demo Text special: .x, "Left", .y, "Bottom", "Helvetica", 20, "0", .label$
+	demo Black
+endproc
+
 # Convert IPA to formant targets
-procedure calculate_targets .sp$ .pinyin$, .ipa$
+procedure calculate_targets .sp$ .pinyin$ .ipa$
 	.f1_targets$ = ""
 	.f2_targets$ = ""
 	.f3_targets$ = ""

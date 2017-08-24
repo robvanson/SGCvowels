@@ -37,9 +37,20 @@ procedure init_LanguageTargets
 	languageTargets.phonemes ["ZH", "M", "a_corner", "F2"] = 1300
 	languageTargets.phonemes ["ZH", "M", "u_corner", "F1"] = 280
 	languageTargets.phonemes ["ZH", "M", "u_corner", "F2"] = 600
+
 	# @_center is not fixed but derived from current corners
 	languageTargets.phonemes ["ZH", "M", "ə_center", "F1"] =(languageTargets.phonemes ["ZH", "M", "i_corner", "F1"]*languageTargets.phonemes ["ZH", "M", "u_corner", "F1"]*languageTargets.phonemes ["ZH", "M", "a_corner", "F1"])^(1/3)
 	languageTargets.phonemes ["ZH", "M", "ə_center", "F2"] = (languageTargets.phonemes ["ZH", "M", "i_corner", "F2"]*languageTargets.phonemes ["ZH", "M", "u_corner", "F2"]*languageTargets.phonemes ["ZH", "M", "a_corner", "F2"])^(1/3)
+
+	# Sides are not fixed but derived from current corners
+	languageTargets.phonemes ["ZH", "M", "e_side", "F1"] =(languageTargets.phonemes ["ZH", "M", "i_corner", "F1"]*languageTargets.phonemes ["ZH", "M", "a_corner", "F1"])^(1/2)
+	languageTargets.phonemes ["ZH", "M", "e_side", "F2"] =(languageTargets.phonemes ["ZH", "M", "i_corner", "F2"]^2*languageTargets.phonemes ["ZH", "M", "a_corner", "F2"])^(1/3)
+
+	languageTargets.phonemes ["ZH", "M", "o_side", "F1"] =(languageTargets.phonemes ["ZH", "M", "u_corner", "F1"]*languageTargets.phonemes ["ZH", "M", "a_corner", "F1"])^(1/2)
+	languageTargets.phonemes ["ZH", "M", "o_side", "F2"] =(languageTargets.phonemes ["ZH", "M", "a_corner", "F2"]*languageTargets.phonemes ["ZH", "M", "u_corner", "F2"]^2)^(1/3)
+
+	languageTargets.phonemes ["ZH", "M", "y_side", "F1"] = languageTargets.phonemes ["ZH", "M", "i_corner", "F1"]
+	languageTargets.phonemes ["ZH", "M", "y_side", "F2"] =(languageTargets.phonemes ["ZH", "M", "i_corner", "F2"]*languageTargets.phonemes ["ZH", "M", "a_corner", "F2"])^(1/2)
 	
 	# Formant values according to 
 	# IFA corpus averages from FPA isolated vowels
@@ -81,9 +92,21 @@ procedure init_LanguageTargets
 	languageTargets.phonemes ["ZH", "F", "a_corner", "F2"] = 1435
 	languageTargets.phonemes ["ZH", "F", "u_corner", "F1"] = 370
 	languageTargets.phonemes ["ZH", "F", "u_corner", "F2"] = 650
+
 	# @_center is not fixed but derived from current corners
 	languageTargets.phonemes ["ZH", "F", "ə_center", "F1"] =(languageTargets.phonemes ["ZH", "F", "i_corner", "F1"]*languageTargets.phonemes ["ZH", "F", "u_corner", "F1"]*languageTargets.phonemes ["ZH", "F", "a_corner", "F1"])^(1/3)
 	languageTargets.phonemes ["ZH", "F", "ə_center", "F2"] = (languageTargets.phonemes ["ZH", "F", "i_corner", "F2"]*languageTargets.phonemes ["ZH", "F", "u_corner", "F2"]*languageTargets.phonemes ["ZH", "F", "a_corner", "F2"])^(1/3)
+
+	# Sides are not fixed but derived from current corners
+	languageTargets.phonemes ["ZH", "F", "e_side", "F1"] =(languageTargets.phonemes ["ZH", "F", "i_corner", "F1"]*languageTargets.phonemes ["ZH", "F", "a_corner", "F1"])^(1/2)
+	languageTargets.phonemes ["ZH", "F", "e_side", "F2"] =1.1*(languageTargets.phonemes ["ZH", "F", "i_corner", "F2"]^2*languageTargets.phonemes ["ZH", "F", "a_corner", "F2"])^(1/3)
+
+	languageTargets.phonemes ["ZH", "F", "o_side", "F1"] =(languageTargets.phonemes ["ZH", "F", "u_corner", "F1"]*languageTargets.phonemes ["ZH", "F", "a_corner", "F1"])^(1/2)
+	languageTargets.phonemes ["ZH", "F", "o_side", "F2"] =(languageTargets.phonemes ["ZH", "F", "a_corner", "F2"]*languageTargets.phonemes ["ZH", "F", "u_corner", "F2"]^2)^(1/3)
+
+	languageTargets.phonemes ["ZH", "F", "y_side", "F1"] = languageTargets.phonemes ["ZH", "F", "i_corner", "F1"]
+	languageTargets.phonemes ["ZH", "F", "y_side", "F2"] =(languageTargets.phonemes ["ZH", "F", "i_corner", "F2"]*languageTargets.phonemes ["ZH", "F", "a_corner", "F2"])^(1/2)
+	
 	
 	# Formant values according to 
 	# IFA corpus average from FPA isolated vowels
