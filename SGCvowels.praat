@@ -27,6 +27,7 @@
 # 
 # Debugging 
 .testAudio = 1
+vowelTarget.printlog = 1
 # 
 .input$ = "Microphone"
 .samplingFrequency = 44100
@@ -94,6 +95,9 @@ while .continue
 	# Locate audio
 	selectObject: .words
 	.audio$ = Get value: .wordNumber, "Audio"
+	if index(.audio$, "/") <= 0
+		.audio$ = .wordsDir$ + "/" + .audio$
+	endif
 	
 	# Write Title
 	demo Text special: 50, "Centre", 110, "Bottom", "Helvetica", 24, "0", .pinyin$+" "+.char$

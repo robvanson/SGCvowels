@@ -26,6 +26,7 @@
 # 
 # 
 #
+vowelTarget.printlog = 1
 
 procedure placeholder
 	# Get word
@@ -199,6 +200,8 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	.numSyllables = Get number of points: .targetTier
 	.startT = 0
 	.targetnum = 0
+	.phonTargetNum = 0
+	.syllNum = 1
 	while .f1_targets$ <> ""
 		@extract_next_target: .f1_targets$
 		.f1 = extract_next_target.value
@@ -218,12 +221,18 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 			# Here we should add some kind of Dynamic Programming to select the best candidates
 			if .numVowelIntervals > 0
 				.targetnum += 1
+				.phonTargetNum += 1
 				# Get closest distance
 				.minVowelDistance = get_closest_vowels.distance_list [1]
 				.f1_list [.targetnum] = get_closest_vowels.f1_list [1]
 				.f2_list [.targetnum] = get_closest_vowels.f2_list [1]
 				.f3_list [.targetnum] = get_closest_vowels.f3_list [1]
 				.t_list [.targetnum] = get_closest_vowels.t_list [1]
+				if variableExists("vowelTarget.printlog") and vowelTarget.printlog
+					appendInfoLine: ".syllable ['.phonTargetNum', 1] = ", .syllNum
+					appendInfoLine: ".distance ['.phonTargetNum', 1] = ", get_closest_vowels.distance_list [1]
+					appendInfoLine: ".time ['.phonTargetNum', 1] = ", get_closest_vowels.t_list [1]
+				endif
 				for .i from 2 to .numVowelIntervals
 					if .minVowelDistance > get_closest_vowels.distance_list [.i]
 						.minVowelDistance = get_closest_vowels.distance_list [.i]
@@ -232,11 +241,17 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 						.f3_list [.targetnum] = get_closest_vowels.f3_list [.i]
 						.t_list [.targetnum] = get_closest_vowels.t_list [.i]
 					endif
+					if variableExists("vowelTarget.printlog") and vowelTarget.printlog
+						appendInfoLine: ".syllable ['.phonTargetNum', '.i'] = ", .syllNum
+						appendInfoLine: ".distance ['.phonTargetNum', '.i'] = ", get_closest_vowels.distance_list ['.i']
+						appendInfoLine: ".time ['.phonTargetNum', '.i'] = ", get_closest_vowels.t_list ['.i']
+					endif
 				endfor
 			endif
 		else
 			# Syllable boundary
 			.targetnum += 1
+			.syllNum += 1
 			.f1_list [.targetnum] = -1
 			.f2_list [.targetnum] = -1
 			.f3_list [.targetnum] = -1
