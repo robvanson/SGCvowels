@@ -200,8 +200,10 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	.numSyllables = Get number of points: .targetTier
 	.startT = 0
 	.targetnum = 0
-	.phonTargetNum = 0
+	.numPhonTargets = 0
 	.syllNum = 1
+	.lastSyllable = 0
+	.numChunks = 0
 	while .f1_targets$ <> ""
 		@extract_next_target: .f1_targets$
 		.f1 = extract_next_target.value
@@ -218,21 +220,28 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 			@get_closest_vowels: .sp$, .formants, .syllableKernels, 0, .gendert$, .f1, .f2
 			.startT = get_closest_vowels.t
 			.numVowelIntervals = get_closest_vowels.vowelNum
+			if .numVowelIntervals > .numChunks
+				.numChunks = .numVowelIntervals
+			endif
 			# Here we should add some kind of Dynamic Programming to select the best candidates
 			if .numVowelIntervals > 0
 				.targetnum += 1
-				.phonTargetNum += 1
+				.numPhonTargets += 1
 				# Get closest distance
 				.minVowelDistance = get_closest_vowels.distance_list [1]
 				.f1_list [.targetnum] = get_closest_vowels.f1_list [1]
 				.f2_list [.targetnum] = get_closest_vowels.f2_list [1]
 				.f3_list [.targetnum] = get_closest_vowels.f3_list [1]
 				.t_list [.targetnum] = get_closest_vowels.t_list [1]
-				if variableExists("vowelTarget.printlog") and vowelTarget.printlog
-					appendInfoLine: ".syllable ['.phonTargetNum', 1] = ", .syllNum
-					appendInfoLine: ".distance ['.phonTargetNum', 1] = ", get_closest_vowels.distance_list [1]
-					appendInfoLine: ".time ['.phonTargetNum', 1] = ", get_closest_vowels.t_list [1]
-				endif
+
+				# Store distances
+				f1_table [.numPhonTargets, 1] = get_closest_vowels.f1_list [1]
+				f2_table [.numPhonTargets, 1] = get_closest_vowels.f2_list [1]
+				syllable [.numPhonTargets, 1] = .syllNum
+				distance [.numPhonTargets, 1] = get_closest_vowels.distance_list [1]
+				time [.numPhonTargets, 1] = get_closest_vowels.t_list [1]
+				.lastSyllable = .syllNum
+				
 				for .i from 2 to .numVowelIntervals
 					if .minVowelDistance > get_closest_vowels.distance_list [.i]
 						.minVowelDistance = get_closest_vowels.distance_list [.i]
@@ -241,11 +250,14 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 						.f3_list [.targetnum] = get_closest_vowels.f3_list [.i]
 						.t_list [.targetnum] = get_closest_vowels.t_list [.i]
 					endif
-					if variableExists("vowelTarget.printlog") and vowelTarget.printlog
-						appendInfoLine: ".syllable ['.phonTargetNum', '.i'] = ", .syllNum
-						appendInfoLine: ".distance ['.phonTargetNum', '.i'] = ", get_closest_vowels.distance_list ['.i']
-						appendInfoLine: ".time ['.phonTargetNum', '.i'] = ", get_closest_vowels.t_list ['.i']
-					endif
+					
+					# Store distances
+					f1_table [.numPhonTargets, .i] = get_closest_vowels.f1_list [.i]
+					f2_table [.numPhonTargets, .i] = get_closest_vowels.f2_list [.i]
+					syllable [.numPhonTargets, .i] = .syllNum
+					distance [.numPhonTargets, .i] = get_closest_vowels.distance_list [.i]
+					time [.numPhonTargets, .i] = get_closest_vowels.t_list [.i]
+					.lastSyllable = .syllNum
 				endfor
 			endif
 		else
@@ -258,6 +270,13 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 			.t_list [.targetnum] = -1
 		endif
 	endwhile
+	
+	# Get the best trace of targets
+	@dptrack: .numPhonTargets, .numChunks
+printline 'dptrack.trace$'
+printline 'dptrack.f1_targets$'
+printline 'dptrack.f2_targets$'
+
 	# Actually plot the vowels
 	.radius = 1
 	if .plot and .targetnum > 0
@@ -763,3 +782,95 @@ procedure initialize_table_collumns .table, .columns$, .initial_value$
 		endif
 	endwhile
 endproc
+
+# Dynamic Programming to track vowel targets
+# Variables:
+# .numTargets: Number of vowel targets
+# .numChunks: Number of vowel chunks/segments
+# Uses global variables:
+# distances [target, chunk] 
+# syllables [target, chunk]
+procedure dptrack .numTargets .numChunks
+	# Cost of previousTarget, previousChunk, diagonal (1, 2, 3) and same versus differentsyllables (1, 2)
+	# Same syllable, stay in chunk
+	.costfactorsyllable [1, 1] = 1
+	.costfactorsyllable [1, 2] = 2
+	# Double a target in a different chunk
+	.costfactorsyllable [2, 1] = 1
+	.costfactorsyllable [2, 2] = 2
+	.costfactorsyllable [3, 1] = 2
+	# Different syllables, move diagonal
+	.costfactorsyllable [3, 2] = 1
+	
+	# Fill cost matrix
+	for .t to .numTargets
+		for .c to .numChunks
+			.dc = distance [.t, .c]
+			.syll = syllable [.t, .c]
+			if .t > 1 or .c > 1
+				if .t > 1
+					.syllPrev = syllable [.t - 1, .c]
+					.syllDifferent = (.syllPrev = .syll) + 1
+					.cPrevT = .costMatrix [.t - 1, .c] + .dc * .costfactorsyllable [1, .syllDifferent]
+				else
+					.cPrevT = 10^10
+				endif
+				if .c > 1
+					.syllPrev = syllable [.t, .c - 1]
+					.syllDifferent = (.syllPrev = .syll) + 1
+					.cPrevC = .costMatrix [.t, .c - 1] + .dc * .costfactorsyllable [2, .syllDifferent]
+				else
+					.cPrevC = 10^10
+				endif
+				if .t > 1 and .c > 1
+					.syllPrev = syllable [.t - 1, .c - 1]
+					.syllDifferent = (.syllPrev = .syll) + 1
+					.cDiagonal = .costMatrix [.t - 1, .c - 1] + .dc * .costfactorsyllable [3, .syllDifferent]
+				else
+					.cDiagonal = 10^10
+				endif
+				.minCost =  min(.cPrevT, .cPrevC, .cDiagonal)
+				if .cPrevT = .minCost or .c <= 1
+					.directionMatrix [.t, .c] = 1
+				elsif .cPrevC = .minCost or .t <= 1
+					.directionMatrix [.t, .c] = 2
+				else
+					.directionMatrix [.t, .c] = 3
+				endif
+			else
+				.minCost = .dc
+				.directionMatrix [1, 1] = 3
+			endif
+			.costMatrix [.t, .c] = .minCost
+		endfor
+	endfor
+
+	.t = .numTargets
+	.c = .numChunks
+	.trace$ = ""
+	.f1_targets$ = ""
+	.f2_targets$ = ""
+	while .t > 0 and .c > 0
+		.f1_targets$ = fixed$(f1_table[.t,.c], 0)+";" + .f1_targets$
+		.f2_targets$ = fixed$(f2_table[.t,.c], 0)+";" + .f2_targets$
+		.trace$ = "'.t','.c';" +.trace$
+		.syll = syllable [.t, .c]
+		if .directionMatrix [.t, .c] = 1
+			.t -= 1
+		elsif .directionMatrix [.t, .c] = 2
+			.c -= 1
+		else
+			.t -= 1
+			.c -= 1
+		endif
+		if .t > 0 and .c > 0 
+			.newSyll = syllable [.t, .c]
+			if .syll <> .newSyll
+				.f1_targets$ = " ;" + .f1_targets$ 
+				.f2_targets$ = " ;" + .f2_targets$
+			endif
+		endif
+	endwhile
+
+endproc
+
