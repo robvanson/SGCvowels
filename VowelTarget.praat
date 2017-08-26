@@ -229,14 +229,15 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 				.numPhonTargets += 1
 				# Get closest distance
 				.minVowelDistance = get_closest_vowels.distance_list [1]
-				.f1_list [.targetnum] = get_closest_vowels.f1_list [1]
-				.f2_list [.targetnum] = get_closest_vowels.f2_list [1]
-				.f3_list [.targetnum] = get_closest_vowels.f3_list [1]
-				.t_list [.targetnum] = get_closest_vowels.t_list [1]
+				f1_list [.targetnum] = get_closest_vowels.f1_list [1]
+				f2_list [.targetnum] = get_closest_vowels.f2_list [1]
+				f3_list [.targetnum] = get_closest_vowels.f3_list [1]
+				t_list [.targetnum] = get_closest_vowels.t_list [1]
 
 				# Store distances
 				f1_table [.numPhonTargets, 1] = get_closest_vowels.f1_list [1]
 				f2_table [.numPhonTargets, 1] = get_closest_vowels.f2_list [1]
+				t_table [.numPhonTargets, 1] = get_closest_vowels.t_list [1]
 				syllable [.numPhonTargets, 1] = .syllNum
 				distance [.numPhonTargets, 1] = get_closest_vowels.distance_list [1]
 				time [.numPhonTargets, 1] = get_closest_vowels.t_list [1]
@@ -245,15 +246,16 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 				for .i from 2 to .numVowelIntervals
 					if .minVowelDistance > get_closest_vowels.distance_list [.i]
 						.minVowelDistance = get_closest_vowels.distance_list [.i]
-						.f1_list [.targetnum] = get_closest_vowels.f1_list [.i]
-						.f2_list [.targetnum] = get_closest_vowels.f2_list [.i]
-						.f3_list [.targetnum] = get_closest_vowels.f3_list [.i]
-						.t_list [.targetnum] = get_closest_vowels.t_list [.i]
+						f1_list [.targetnum] = get_closest_vowels.f1_list [.i]
+						f2_list [.targetnum] = get_closest_vowels.f2_list [.i]
+						f3_list [.targetnum] = get_closest_vowels.f3_list [.i]
+						t_list [.targetnum] = get_closest_vowels.t_list [.i]
 					endif
 					
 					# Store distances
 					f1_table [.numPhonTargets, .i] = get_closest_vowels.f1_list [.i]
 					f2_table [.numPhonTargets, .i] = get_closest_vowels.f2_list [.i]
+					t_table [.numPhonTargets, .i] = get_closest_vowels.t_list [.i]
 					syllable [.numPhonTargets, .i] = .syllNum
 					distance [.numPhonTargets, .i] = get_closest_vowels.distance_list [.i]
 					time [.numPhonTargets, .i] = get_closest_vowels.t_list [.i]
@@ -264,10 +266,10 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 			# Syllable boundary
 			.targetnum += 1
 			.syllNum += 1
-			.f1_list [.targetnum] = -1
-			.f2_list [.targetnum] = -1
-			.f3_list [.targetnum] = -1
-			.t_list [.targetnum] = -1
+			f1_list [.targetnum] = -1
+			f2_list [.targetnum] = -1
+			f3_list [.targetnum] = -1
+			t_list [.targetnum] = -1
 		endif
 	endwhile
 	
@@ -280,8 +282,8 @@ printline 'dptrack.f2_targets$'
 	# Actually plot the vowels
 	.radius = 1
 	if .plot and .targetnum > 0
-		if .f1_list [1] > 0
-			@vowel2point: .sp$, .f1_list [1], .f2_list [1]
+		if f1_list [1] > 0
+			@vowel2point: .sp$, f1_list [1], f2_list [1]
 			.x = vowel2point.x
 			.y = vowel2point.y
 			demo Paint circle: .color$, .x, .y, .radius
@@ -294,8 +296,8 @@ printline 'dptrack.f2_targets$'
 		for .t from 2 to .targetnum
 			.xlast = .x
 			.ylast = .y
-			if .f1_list [.t] > 0
-				@vowel2point: .sp$, .f1_list [.t], .f2_list [.t]
+			if f1_list [.t] > 0
+				@vowel2point: .sp$, f1_list [.t], f2_list [.t]
 				.x = vowel2point.x
 				.y = vowel2point.y
 				if .plotArrow
@@ -323,11 +325,11 @@ printline 'dptrack.f2_targets$'
 		.f3values$ = ""
 		.tvalues$ = ""
 		for .t to .targetnum
-			if .f1_list [.t] > 0
-				.f1values$ = .f1values$ + fixed$(.f1_list [.t], 0) + ";"
-				.f2values$ = .f2values$ + fixed$(.f2_list [.t], 0) + ";"
-				.f3values$ = .f3values$ + fixed$(.f3_list [.t], 0) + ";"
-				.tvalues$ = .tvalues$ + fixed$(.t_list [.t], 3) + ";"
+			if f1_list [.t] > 0
+				.f1values$ = .f1values$ + fixed$(f1_list [.t], 0) + ";"
+				.f2values$ = .f2values$ + fixed$(f2_list [.t], 0) + ";"
+				.f3values$ = .f3values$ + fixed$(f3_list [.t], 0) + ";"
+				.tvalues$ = .tvalues$ + fixed$(t_list [.t], 3) + ";"
 			else
 				.f1values$ = .f1values$ + " " + ";"
 				.f2values$ = .f2values$ + " " + ";"
@@ -355,13 +357,13 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 		@extract_next_target: .f3_targets$
 		.f3 = extract_next_target.value
 		.f3_targets$ = extract_next_target.targets$
-		.f1_list [.t] = .f1
-		.f2_list [.t] = .f2
+		f1_list [.t] = .f1
+		f2_list [.t] = .f2
 	endwhile
 	.targetnum = .t
 	.radius = 1
-	if .f1_list [1] > 0
-		@vowel2point: .sp$, .f1_list [1], .f2_list [1]
+	if f1_list [1] > 0
+		@vowel2point: .sp$, f1_list [1], f2_list [1]
 		.x = vowel2point.x
 		.y = vowel2point.y
 		demo Paint circle: .color$, .x, .y, .radius
@@ -374,8 +376,8 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 	for .t from 2 to .targetnum
 		.xlast = .x
 		.ylast = .y
-		if .f1_list [.t] > 0
-			@vowel2point: .sp$, .f1_list [.t], .f2_list [.t]
+		if f1_list [.t] > 0
+			@vowel2point: .sp$, f1_list [.t], f2_list [.t]
 			.x = vowel2point.x
 			.y = vowel2point.y
 			if .plotArrow
@@ -847,30 +849,59 @@ procedure dptrack .numTargets .numChunks
 
 	.t = .numTargets
 	.c = .numChunks
+	.s = syllable [.t, .c]
+	.replace = 1
+	.distance = 0
 	.trace$ = ""
 	.f1_targets$ = ""
 	.f2_targets$ = ""
 	while .t > 0 and .c > 0
-		.f1_targets$ = fixed$(f1_table[.t,.c], 0)+";" + .f1_targets$
-		.f2_targets$ = fixed$(f2_table[.t,.c], 0)+";" + .f2_targets$
-		.trace$ = "'.t','.c';" +.trace$
+		if .replace
+			.distance = distance [.t, .c]
+			.f1_targets$ = fixed$(f1_table[.t,.c], 0)+";" + .f1_targets$
+			.f2_targets$ = fixed$(f2_table[.t,.c], 0)+";" + .f2_targets$
+			f1_list [.t + .s - 1] = f1_table[.t,.c]
+			f2_list [.t + .s - 1] = f2_table[.t,.c]
+			t_list [.t + .s - 1] = t_table[.t,.c]
+			.trace$ = "'.t','.c';" +.trace$
+		endif
 		.syll = syllable [.t, .c]
 		if .directionMatrix [.t, .c] = 1
 			.t -= 1
 		elsif .directionMatrix [.t, .c] = 2
 			.c -= 1
+			# The same target, check whether the value should be changed
+			.replace = 1
+			# This target is worse, skip
+			if distance [.t, .c] >= .distance
+				.replace = 0
+			endif
 		else
 			.t -= 1
 			.c -= 1
 		endif
 		if .t > 0 and .c > 0 
-			.newSyll = syllable [.t, .c]
-			if .syll <> .newSyll
+			.s = syllable [.t, .c]
+			if .syll <> .s
 				.f1_targets$ = " ;" + .f1_targets$ 
 				.f2_targets$ = " ;" + .f2_targets$
+				f1_list [.t + .s - 1] = -1
+				f2_list [.t + .s - 1] = -1
+				t_list [.t + .s - 1] = -1
 			endif
 		endif
 	endwhile
 
+	# Remove empty first chunk
+	.f1_targets$ = replace_regex$(.f1_targets$, "^ ;", "", 0)
+	.f2_targets$ = replace_regex$(.f2_targets$, "^ ;", "", 0)
+	if f1_list [1] <= 0
+		.last = .numTargets + syllable [.numTargets, .numChunks] - 2
+		for .i from 1 to .last
+			f1_list [.i] = f1_list [.i + 1]
+			f2_list [.i] = f2_list [.i + 1]
+			t_list [.i] = t_list [.i + 1]
+		endif
+	endif
 endproc
 
