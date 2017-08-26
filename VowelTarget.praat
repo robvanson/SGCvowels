@@ -275,9 +275,9 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	
 	# Get the best trace of targets
 	@dptrack: .numPhonTargets, .numChunks
-printline 'dptrack.trace$'
-printline 'dptrack.f1_targets$'
-printline 'dptrack.f2_targets$'
+	for .i to dptrack.last+1
+		appendInfoLine: .i, ": ", t_list [.i], " - ", f1_list [.i], ", ", f2_list [.i]
+	endfor
 
 	# Actually plot the vowels
 	.radius = 1
@@ -796,12 +796,15 @@ procedure dptrack .numTargets .numChunks
 	# Cost of previousTarget, previousChunk, diagonal (1, 2, 3) and same versus differentsyllables (1, 2)
 	# Same syllable, stay in chunk
 	.costfactorsyllable [1, 1] = 1
-	.costfactorsyllable [1, 2] = 2
+	# Different syllable, should move to different chunk 
+	.costfactorsyllable [1, 2] = 3
 	# Double a target in a different chunk
-	.costfactorsyllable [2, 1] = 1
+	.costfactorsyllable [2, 1] = 2
+	# Same target, different chunk, can happen (e.g. 3rd tone)
 	.costfactorsyllable [2, 2] = 2
+	# Same syllable but different target AND different chunk
 	.costfactorsyllable [3, 1] = 2
-	# Different syllables, move diagonal
+	# Different targets and syllables, move diagonal
 	.costfactorsyllable [3, 2] = 1
 	
 	# Fill cost matrix
@@ -809,25 +812,41 @@ procedure dptrack .numTargets .numChunks
 		for .c to .numChunks
 			.dc = distance [.t, .c]
 			.syll = syllable [.t, .c]
+			.time = time [.t, .c]
 			if .t > 1 or .c > 1
 				if .t > 1
 					.syllPrev = syllable [.t - 1, .c]
 					.syllDifferent = (.syllPrev = .syll) + 1
-					.cPrevT = .costMatrix [.t - 1, .c] + .dc * .costfactorsyllable [1, .syllDifferent]
+					.timePrev = time [.t - 1, .c]
+					.timeCost = 1
+					if .timePrev >= .time
+						.timeCost = 100
+					endif
+					.cPrevT = .costMatrix [.t - 1, .c] + .dc * .costfactorsyllable [1, .syllDifferent] * .timeCost
 				else
 					.cPrevT = 10^10
 				endif
 				if .c > 1
 					.syllPrev = syllable [.t, .c - 1]
 					.syllDifferent = (.syllPrev = .syll) + 1
-					.cPrevC = .costMatrix [.t, .c - 1] + .dc * .costfactorsyllable [2, .syllDifferent]
+					.timePrev = time [.t, .c - 1]
+					.timeCost = 1
+					if .timePrev >= .time
+						.timeCost = 100
+					endif
+					.cPrevC = .costMatrix [.t, .c - 1] + .dc * .costfactorsyllable [2, .syllDifferent] * .timeCost
 				else
 					.cPrevC = 10^10
 				endif
 				if .t > 1 and .c > 1
 					.syllPrev = syllable [.t - 1, .c - 1]
 					.syllDifferent = (.syllPrev = .syll) + 1
-					.cDiagonal = .costMatrix [.t - 1, .c - 1] + .dc * .costfactorsyllable [3, .syllDifferent]
+					.timePrev = time [.t - 1, .c - 1]
+					.timeCost = 1
+					if .timePrev >= .time
+						.timeCost = 100
+					endif
+					.cDiagonal = .costMatrix [.t - 1, .c - 1] + .dc * .costfactorsyllable [3, .syllDifferent] * .timeCost
 				else
 					.cDiagonal = 10^10
 				endif
@@ -852,28 +871,23 @@ procedure dptrack .numTargets .numChunks
 	.s = syllable [.t, .c]
 	.replace = 1
 	.distance = 0
-	.trace$ = ""
-	.f1_targets$ = ""
-	.f2_targets$ = ""
 	while .t > 0 and .c > 0
 		if .replace
 			.distance = distance [.t, .c]
-			.f1_targets$ = fixed$(f1_table[.t,.c], 0)+";" + .f1_targets$
-			.f2_targets$ = fixed$(f2_table[.t,.c], 0)+";" + .f2_targets$
 			f1_list [.t + .s - 1] = f1_table[.t,.c]
 			f2_list [.t + .s - 1] = f2_table[.t,.c]
 			t_list [.t + .s - 1] = t_table[.t,.c]
-			.trace$ = "'.t','.c';" +.trace$
 		endif
 		.syll = syllable [.t, .c]
+		.replace = 1
 		if .directionMatrix [.t, .c] = 1
 			.t -= 1
 		elsif .directionMatrix [.t, .c] = 2
 			.c -= 1
 			# The same target, check whether the value should be changed
-			.replace = 1
 			# This target is worse, skip
 			if distance [.t, .c] >= .distance
+printline switch t: 't_table[.t,.c]' 't_table[.t+1,.c+1]'
 				.replace = 0
 			endif
 		else
@@ -883,8 +897,6 @@ procedure dptrack .numTargets .numChunks
 		if .t > 0 and .c > 0 
 			.s = syllable [.t, .c]
 			if .syll <> .s
-				.f1_targets$ = " ;" + .f1_targets$ 
-				.f2_targets$ = " ;" + .f2_targets$
 				f1_list [.t + .s - 1] = -1
 				f2_list [.t + .s - 1] = -1
 				t_list [.t + .s - 1] = -1
@@ -893,15 +905,34 @@ procedure dptrack .numTargets .numChunks
 	endwhile
 
 	# Remove empty first chunk
-	.f1_targets$ = replace_regex$(.f1_targets$, "^ ;", "", 0)
-	.f2_targets$ = replace_regex$(.f2_targets$, "^ ;", "", 0)
 	if f1_list [1] <= 0
 		.last = .numTargets + syllable [.numTargets, .numChunks] - 2
 		for .i from 1 to .last
 			f1_list [.i] = f1_list [.i + 1]
 			f2_list [.i] = f2_list [.i + 1]
 			t_list [.i] = t_list [.i + 1]
-		endif
+		endfor
 	endif
+
+	# Put targets in right temporal order
+	.last = .numTargets + syllable [.numTargets, .numChunks] - 2
+	for .i from 1 to .last
+		.t1 = t_list [.i]
+		.t2 = t_list [.i + 1]
+		if .t1 > 0 and .t2 > 0 and .t1 > .t2
+printline '.t1' > '.t2'
+			.tmp = f1_list [.i]
+			f1_list [.i] = f1_list [.i + 1]
+			f1_list [.i + 1] = .tmp
+			
+			.tmp = f2_list [.i]
+			f2_list [.i] = f2_list [.i + 1]
+			f2_list [.i + 1] = .tmp
+			
+			.tmp = t_list [.i]
+			t_list [.i] = t_list [.i + 1]
+			t_list [.i + 1] = .tmp
+		endif
+	endfor
 endproc
 
