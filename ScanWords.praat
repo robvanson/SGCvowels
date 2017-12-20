@@ -51,7 +51,7 @@ for .f to .numFiles
 	endif
 	
 	@drawSourceVowelTarget: plot, .audioList, .f, .sp$, .sound
-pause
+#pause
 	selectObject: .sound
 	Remove
 endfor

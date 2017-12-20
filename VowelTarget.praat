@@ -28,51 +28,6 @@
 #
 vowelTarget.printlog = 1
 
-procedure placeholder
-	# Get word
-	plot_VowelTriangle_and_Target .words .wordNumber
-	# Record sound
-	if .testAudio and index_regex(.audio$, "\.(wav|mp3)$") and fileReadable(.audio$)
-		.sound = Read from file: .audio$
-	else
-		demo Paint circle: "Red", -20, 120, 3
-		demoShow()
-		.sound = Record Sound (fixed time): .input$, 0.99, 0.5, "'.samplingFrequency'", .recordingTime
-		demo Paint circle: "White", -20, 120, 4
-		demoShow()
-	endif
-	.intensity = Get intensity (dB)
-	if .intensity > 50
-		if index(.f1_targets$, ";") <= 0
-			@calculate_targets: .sp$, .pinyin$, .ipa$
-			.f1_targets$ = calculate_targets.f1_targets$
-			.f2_targets$ = calculate_targets.f2_targets$
-			.f3_targets$ = calculate_targets.f3_targets$
-			.gendert$ = .sp$
-		endif
-		@plot_vowels: 1, "Red", .sp$, .sound, .pinyin$, .ipa$, .gendert$, .f1_targets$, .f2_targets$, .f3_targets$
-	endif
-	
-	selectObject: .sound
-	Remove
-	
-	# Ready or not?
-	beginPause: "Do you want to continue?"
-		comment: "Click on ""Record"" and start speaking (or click ""Done"")"
-	.clicked = endPause: "Done", "Record", 2, 1
-	.continue = (.clicked = 2)
-	
-	.wordNumber += 1
-	if .wordNumber > .numWords
-		.wordNumber = 1
-	endif
-endwhile
-
-selectObject: .words
-Remove
-
-endproc
-
 procedure plot_voweltriangle_and_target .wordList .wordNumber
 	@initialize_table_collumns: .wordList, "Character$;Audio$;Gender$;IPA$;Gender$;F1$;F2$;F3$;", "-"
 	selectObject: .wordList
@@ -158,6 +113,38 @@ procedure extract_first_vowel .ipa_string$
 		endif
 endproc
 
+procedure getTargets .lang$ .gender$ .ipa_string$
+	# Remove non-vowel symbols
+	.vowels$ = replace_regex$(.ipa_string$, "[^'ipavowelsymbols$']+", " ", 0)
+	.vowels$ = replace_regex$(.vowels$, "^[ ]+", "", 0)
+	.vowels$ = replace_regex$(.vowels$, "[ ]+$", "", 0)
+	.vowels$ = replace_regex$(.vowels$, "[ ]+", " ", 0)
+
+	# Split into individual vowels and clusters
+	.vowels$ = replace_regex$(.vowels$, "(.)", "\1;", 0)
+	.vowels$ = replace_regex$(.vowels$, "[;]+$", "", 0)
+
+	# Get targets
+	.f1$ = ""
+	.f2$ = ""
+	.f3$ = ""
+	while .vowels$ <> ""
+		@extract_next_vowel: .vowels$
+		.segment$ = extract_next_vowel.segment$
+		.vowels$ = extract_next_vowel.vowels$
+		
+		if index_regex(ipavowelsymbols$, .segment$)
+			.f1$ = .f1$ + fixed$(languageTargets.phonemes [.lang$, .gender$, .segment$, "F1"],0)
+			.f2$ = .f2$ + fixed$(languageTargets.phonemes [.lang$, .gender$, .segment$, "F2"],0)
+			.f3$ = .f3$ + "-"
+		elsif .segment$ = ";"
+			.f1$ = .f1$ + ";"
+			.f2$ = .f2$ + ";"
+			.f3$ = .f3$ + ";"
+		endif
+	endwhile
+endproc
+
 procedure extract_first_vowelcluster .ipa_string$
 		.ipa_string$ = replace_regex$(.ipa_string$, "^[^'ipavowelsymbols$']+", "", 0)
 		.vowel$ = ""
@@ -187,15 +174,35 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	selectObject: .sound
 	if .sp$ = "M"
 		.downSampled = Resample: 10000, 50
-		.formants = noprogress To Formant (sl): 0, 5, 5000, 0.025, 50
+		.formants = noprogress To Formant (sl): 0, 5, 5000, 0.05, 50
 	else
 		.downSampled = Resample: 11000, 50
-		.formants = noprogress To Formant (sl): 0, 5, 5500, 0.025, 50
+		.formants = noprogress To Formant (sl): 0, 5, 5500, 0.05, 50
 	endif
 
 	call select_vowel_target .sound .formants .syllableKernels
 	.vowelTier = select_vowel_target.vowelTier
 	.targetTier = select_vowel_target.targetTier
+
+	if variableExists("sourceTextGrid") 
+		if sourceTextGrid > 0
+			selectObject: .syllableKernels
+			Remove
+			selectObject: sourceTextGrid
+			.syllableKernels = Copy: "SourceTextGrid"
+		elsif .plot
+			selectObject: .sound
+			plusObject: .syllableKernels
+			Edit
+			pause 'sourceTextGridName$'
+			selectObject: .syllableKernels
+			.numTiers = Get number of tiers
+			for .t to .numTiers - 2
+				Remove tier: .numTiers + 1 - .t
+			endfor
+			Save as short text file: sourceTextGridName$
+		endif
+	endif
 	selectObject: .syllableKernels
 	.numSyllables = Get number of points: .targetTier
 	.startT = 0
@@ -204,16 +211,19 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	.syllNum = 1
 	.lastSyllable = 0
 	.numChunks = 0
-	while .f1_targets$ <> ""
-		@extract_next_target: .f1_targets$
+	.temp_f1_targets$ = .f1_targets$
+	.temp_f2_targets$ = .f2_targets$
+	.temp_f3_targets$ = .f3_targets$
+	while .temp_f1_targets$ <> ""
+		@extract_next_target: .temp_f1_targets$
 		.f1 = extract_next_target.value
-		.f1_targets$ = extract_next_target.targets$
-		@extract_next_target: .f2_targets$
+		.temp_f1_targets$ = extract_next_target.targets$
+		@extract_next_target: .temp_f2_targets$
 		.f2 = extract_next_target.value
-		.f2_targets$ = extract_next_target.targets$
-		@extract_next_target: .f3_targets$
+		.temp_f2_targets$ = extract_next_target.targets$
+		@extract_next_target: .temp_f3_targets$
 		.f3 = extract_next_target.value
-		.f3_targets$ = extract_next_target.targets$
+		.temp_f3_targets$ = extract_next_target.targets$
 				
 		# Catch syllable boundaries
 		if .f1 > 0
@@ -231,6 +241,7 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 				# Store distances
 				f1_table [.numPhonTargets, 1] = get_closest_vowels.f1_list [1]
 				f2_table [.numPhonTargets, 1] = get_closest_vowels.f2_list [1]
+				f3_table [.numPhonTargets, 1] = get_closest_vowels.f3_list [1]
 				t_table [.numPhonTargets, 1] = get_closest_vowels.t_list [1]
 				syllable [.numPhonTargets, 1] = .syllNum
 				distance [.numPhonTargets, 1] = get_closest_vowels.distance_list [1]
@@ -241,6 +252,7 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 					# Store distances
 					f1_table [.numPhonTargets, .i] = get_closest_vowels.f1_list [.i]
 					f2_table [.numPhonTargets, .i] = get_closest_vowels.f2_list [.i]
+					f3_table [.numPhonTargets, .i] = get_closest_vowels.f3_list [.i]
 					t_table [.numPhonTargets, .i] = get_closest_vowels.t_list [.i]
 					syllable [.numPhonTargets, .i] = .syllNum
 					distance [.numPhonTargets, .i] = get_closest_vowels.distance_list [.i]
@@ -256,13 +268,22 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 	endwhile
 
 	# Get the best trace of targets
-	@dptrack: .numPhonTargets, .numChunks
+	if .numPhonTargets > 0 and .numChunks > 0
+		@dptrack: .numPhonTargets, .numChunks
+		@reorder_multi_targets: .sp$, .formants, .syllableKernels, .gendert$, .f1_targets$, .f2_targets$, .f3_targets$
+	else
+		appendInfoLine: "Error: '.pinyin$' /'.ipa$'/ No data." 
+		appendInfoLine: "Number of phoneme targets - ",.numPhonTargets
+		appendInfoLine: "Number of vowel segments found - ", .numChunks
+		appendFileLine: outFile$, .pinyin$, tab$, .ipa$, tab$, .sp$, tab$, .targetnum, tab$, "-", tab$, "-", tab$, "-", tab$, "-"
+	endif
+
 
 	# Actually plot the vowels
 	.radius = 1
 	if .plot and .targetnum > 0
-		if f1_list [1] > 0
-			@vowel2point: .sp$, f1_list [1], f2_list [1]
+		if vowelTarget.f1_list [1] > 0
+			@vowel2point: .sp$, vowelTarget.f1_list [1], vowelTarget.f2_list [1]
 			.x = vowel2point.x
 			.y = vowel2point.y
 			demo Paint circle: .color$, .x, .y, .radius
@@ -275,8 +296,8 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 		for .t from 2 to .targetnum
 			.xlast = .x
 			.ylast = .y
-			if f1_list [.t] > 0
-				@vowel2point: .sp$, f1_list [.t], f2_list [.t]
+			if vowelTarget.f1_list [.t] > 0
+				@vowel2point: .sp$, vowelTarget.f1_list [.t], vowelTarget.f2_list [.t]
 				.x = vowel2point.x
 				.y = vowel2point.y
 				if .plotArrow
@@ -304,11 +325,11 @@ procedure plot_vowels .plot, .color$ .sp$ .sound .pinyin$ .ipa$ .gendert$ .f1_ta
 		.f3values$ = ""
 		.tvalues$ = ""
 		for .t to .targetnum
-			if f1_list [.t] > 0
-				.f1values$ = .f1values$ + fixed$(f1_list [.t], 0) + ";"
-				.f2values$ = .f2values$ + fixed$(f2_list [.t], 0) + ";"
-				.f3values$ = .f3values$ + fixed$(f3_list [.t], 0) + ";"
-				.tvalues$ = .tvalues$ + fixed$(t_list [.t], 3) + ";"
+			if vowelTarget.f1_list [.t] > 0
+				.f1values$ = .f1values$ + fixed$(vowelTarget.f1_list [.t], 0) + ";"
+				.f2values$ = .f2values$ + fixed$(vowelTarget.f2_list [.t], 0) + ";"
+				.f3values$ = .f3values$ + fixed$(vowelTarget.f3_list [.t], 0) + ";"
+				.tvalues$ = .tvalues$ + fixed$(vowelTarget.t_list [.t], 3) + ";"
 			else
 				.f1values$ = .f1values$ + " " + ";"
 				.f2values$ = .f2values$ + " " + ";"
@@ -341,8 +362,8 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 	endwhile
 	.targetnum = .t
 	.radius = 1
-	if f1_list [1] > 0
-		@vowel2point: .sp$, f1_list [1], f2_list [1]
+	if vowelTarget.f1_list [1] > 0
+		@vowel2point: .sp$, vowelTarget.f1_list [1], vowelTarget.f2_list [1]
 		.x = vowel2point.x
 		.y = vowel2point.y
 		demo Paint circle: .color$, .x, .y, .radius
@@ -355,8 +376,8 @@ procedure plot_targets .color$ .sp$ .f1_targets$ .f2_targets$ .f3_targets$
 	for .t from 2 to .targetnum
 		.xlast = .x
 		.ylast = .y
-		if f1_list [.t] > 0
-			@vowel2point: .sp$, f1_list [.t], f2_list [.t]
+		if vowelTarget.f1_list [.t] > 0
+			@vowel2point: .sp$, vowelTarget.f1_list [.t], vowelTarget.f2_list [.t]
 			.x = vowel2point.x
 			.y = vowel2point.y
 			if .plotArrow
@@ -514,6 +535,11 @@ procedure calculate_targets .sp$ .pinyin$ .ipa$
 endproc
 
 # Get next positive value from list "<value>;<value>;..." where " ;" represents a syllable boundary
+procedure extract_next_vowel .vowels$
+	.segment$ = replace_regex$(.vowels$, "^(.).*$", "\1", 0)
+	.vowels$ = replace_regex$(.vowels$, "^(.)(.*)$", "\2", 0)
+endproc
+
 procedure extract_next_target .targets$
 	.value = number(replace_regex$(.targets$, "^([^;]+);.*$", "\1", 0))
 	if .value = undefined
@@ -521,6 +547,35 @@ procedure extract_next_target .targets$
 	endif
 	.targets$ = replace_regex$(.targets$, "^([^;]*)(;|$)", "", 0)
 endproc
+
+procedure extract_target_i .targets$ .i
+	.tmp$ = .targets$
+	if .i > 1
+		.prev = .i - 1
+		.tmp$ = replace_regex$(.targets$, "^(\d+;){'.prev'}(.*)$", "\2", 0)
+	endif
+	.target$ = replace_regex$(.tmp$, "^(\d+)(;*.*)$", "\1", 0)
+	.value = number(.target$)
+	if .value = undefined
+		.value = -1
+	endif
+endproc
+
+procedure num_targets .targets$
+	.t = 0
+	.tmp$ = .targets$
+	while .tmp$ <> ""
+		if index(.tmp$, "^[^;]+;")
+			.t += 1
+			.tmp$ = replace_regex$(.tmp$, "^[^;]+;(.*)$", "\1", 0)
+		elsif index(.tmp$, "^\d+$")
+			.t += 1
+			.tmp$ = ""
+		else
+			.tmp$ = ""
+		endif
+	endwhile
+endif
 
 # Convert the frequencies to coordinates
 procedure vowel2point .sp$ .f1 .f2
@@ -683,6 +738,10 @@ procedure pinyin2ipa .pinyin$
 			.f3$ = .f3$ + calculate_targets.f3_targets$ + " ;"
 		endif
 	endwhile
+	.f1$ = replace_regex$(.f1$, "; ;$", ";", 0)
+	.f2$ = replace_regex$(.f2$, "; ;$", ";", 0)
+	.f3$ = replace_regex$(.f3$, "; ;$", ";", 0)
+	.t$ = replace_regex$(.t$, "; ;$", ";", 0)
 endproc
 
 # 
@@ -773,6 +832,10 @@ endproc
 # Uses global variables:
 # distances [target, chunk] 
 # syllables [target, chunk]
+# 
+# Creates global lists:
+# vowelTarget.t_list, vowelTarget.f1_list, vowelTarget.f2_list
+vowelTarget.list_length = -1
 procedure dptrack .numPhonTargets .numChunks
 
 	# Fill syllables to chunks distance matrix
@@ -809,193 +872,369 @@ procedure dptrack .numPhonTargets .numChunks
 		endfor
 	endfor
 	
-	# Fill cost matrix
-	# Minimum Distance
-	.c_cost = 2
-	.s_cost = 2
-	.diagonal_cost = 1
-	for .s to .numSyllables
-		for .c to .numChunks
-			.dc = distanceSyllablesMin [.s, .c]
-			if .s > 1 or .c > 1
-				if .s > 1
-					.cPrevS = .costSyllMatrixMin [.s - 1, .c] + .dc * .s_cost
-				else
-					.cPrevS = 10^10
-				endif
-				if .c > 1
-					.cPrevC = .costSyllMatrixMin [.s, .c - 1] + .dc * .c_cost
-				else
-					.cPrevC = 10^10
-				endif
-				if .s > 1 and .c > 1
-					.cDiagonal = .costSyllMatrixMin [.s - 1, .c - 1] + .dc * .diagonal_cost
-				else
-					.cDiagonal = 10^10
-				endif
-				.minCost =  min(.cPrevS, .cPrevC, .cDiagonal)
-				if .cPrevS = .minCost or .c <= 1
-					.directionMatrixMin [.s, .c] = 1
-				elsif .cPrevC = .minCost or .s <= 1
-					.directionMatrixMin [.s, .c] = 2
-				else
-					.directionMatrixMin [.s, .c] = 3
-				endif
-			else
-				.minCost = .dc
-				.directionMatrixMin [1, 1] = 3
-			endif
-			.costSyllMatrixMin [.s, .c] = .minCost
-		endfor
-	endfor
-	# Mean Distance
-	.c_cost = 2
-	.s_cost = 2
-	.diagonal_cost = 1
-	for .s to .numSyllables
-		for .c to .numChunks
-			.dc = distanceSyllablesMean [.s, .c]
-			if .s > 1 or .c > 1
-				if .s > 1
-					.cPrevS = .costSyllMatrixMean [.s - 1, .c] + .dc * .s_cost
-				else
-					.cPrevS = 10^10
-				endif
-				if .c > 1
-					.cPrevC = .costSyllMatrixMean [.s, .c - 1] + .dc * .c_cost
-				else
-					.cPrevC = 10^10
-				endif
-				if .s > 1 and .c > 1
-					.cDiagonal = .costSyllMatrixMean [.s - 1, .c - 1] + .dc * .diagonal_cost
-				else
-					.cDiagonal = 10^10
-				endif
-				.minCost =  min(.cPrevS, .cPrevC, .cDiagonal)
-				if .cPrevS = .minCost or .c <= 1
-					.directionMatrixMean [.s, .c] = 1
-				elsif .cPrevC = .minCost or .s <= 1
-					.directionMatrixMean [.s, .c] = 2
-				else
-					.directionMatrixMean [.s, .c] = 3
-				endif
-			else
-				.minCost = .dc
-				.directionMatrixMean [1, 1] = 3
-			endif
-			.costSyllMatrixMean [.s, .c] = .minCost
-		endfor
-	endfor
-	
-	# Associate Syllables to Chunks
+	# Choose one of the following
 	# Minimum distance
-	.s = .numSyllables
-	.c = .numChunks
-	while .s > 0 and .c > 0
-		.syllableChunksMin [.c] = .s
-		if .directionMatrixMin [.s, .c] = 1
-			.s -= 1
-		elsif .directionMatrixMin [.s, .c] = 2
-			.c -= 1
-		else
-			.s -= 1
-			.c -= 1
-		endif
-	endwhile
-	# Associate Syllables to Chunks
-	# Mean distance
-	.s = .numSyllables
-	.c = .numChunks
-	while .s > 0 and .c > 0
-		.syllableChunksMean [.c] = .s
-		if .directionMatrixMean [.s, .c] = 1
-			.s -= 1
-		elsif .directionMatrixMean [.s, .c] = 2
-			.c -= 1
-		else
-			.s -= 1
-			.c -= 1
-		endif
-	endwhile
-	
-	# Determine targets
-	# Minimum distance
-	.lastSyll = -1
-	.l = 1
-	for .t to .numPhonTargets
-		.minDistance = 10^6
-		# If this is a new syllable, insert break
-		.s = syllable [.t, 1]
-		if .s > 1 and .s <> .lastSyll
-			.lastSyll = .s
-			f1_list [.l] = -1
-			f2_list [.l] = -1
-			t_list [.l] = -1
-			.l += 1			
-		endif
-		for .c to .numChunks
-			if .s = .syllableChunksMin [.c]
-				if distance [.t, .c] < .minDistance
-					.minDistance = distance [.t, .c]
-					f1_list [.l] = f1_table[.t,.c]
-					f2_list [.l] = f2_table[.t,.c]
-					t_list [.l] = t_table[.t,.c]
-				endif
-			endif
-		endfor
-		.l += 1
-	endfor
-	# Add closing syllable
-	f1_list [.l] = -1
-	f2_list [.l] = -1
-	t_list [.l] = -1
-	
-	# Mean distance
 	if 0
-	.lastSyll = -1
-	.l = 1
-	for .t to .numPhonTargets
-		.minDistance = 10^6
-		# If this is a new syllable, insert break
-		.s = syllable [.t, 1]
-		if .s > 1 and .s <> .lastSyll
-			.lastSyll = .s
-			f1_list [.l] = -1
-			f2_list [.l] = -1
-			t_list [.l] = -1
-			.l += 1			
-		endif
-		for .c to .numChunks
-			if .s = .syllableChunksMean [.c]
-				if distance [.t, .c] < .minDistance
-					.minDistance = distance [.t, .c]
-					f1_list [.l] = f1_table[.t,.c]
-					f2_list [.l] = f2_table[.t,.c]
-					t_list [.l] = t_table[.t,.c]
+		# Fill cost matrix
+		# Minimum Distance
+		.c_cost = 2
+		.s_cost = 2
+		.diagonal_cost = 1
+		for .s to .numSyllables
+			for .c to .numChunks
+				.dc = distanceSyllablesMin [.s, .c]
+				if .s > 1 or .c > 1
+					if .s > 1
+						.cPrevS = .costSyllMatrixMin [.s - 1, .c] + .dc * .s_cost
+					else
+						.cPrevS = 10^10
+					endif
+					if .c > 1
+						.cPrevC = .costSyllMatrixMin [.s, .c - 1] + .dc * .c_cost
+					else
+						.cPrevC = 10^10
+					endif
+					if .s > 1 and .c > 1
+						.cDiagonal = .costSyllMatrixMin [.s - 1, .c - 1] + .dc * .diagonal_cost
+					else
+						.cDiagonal = 10^10
+					endif
+					.minCost =  min(.cPrevS, .cPrevC, .cDiagonal)
+					if .cPrevS = .minCost or .c <= 1
+						.directionMatrixMin [.s, .c] = 1
+					elsif .cPrevC = .minCost or .s <= 1
+						.directionMatrixMin [.s, .c] = 2
+					else
+						.directionMatrixMin [.s, .c] = 3
+					endif
+				else
+					.minCost = .dc
+					.directionMatrixMin [1, 1] = 3
 				endif
-			endif
+				.costSyllMatrixMin [.s, .c] = .minCost
+			endfor
 		endfor
-		.l += 1
-	endfor
-	endif
 	
-	# Put targets in the right temporal order
-	.last = .numPhonTargets + .numSyllables - 2
-	for .i to .last
-		.t1 = t_list [.i]
-		.t2 = t_list [.i + 1]
+		# Associate Syllables to Chunks
+		# Minimum distance
+		.s = .numSyllables
+		.c = .numChunks
+		while .s > 0 and .c > 0
+			.syllableChunksMin [.c] = .s
+			if .directionMatrixMin [.s, .c] = 1
+				.s -= 1
+			elsif .directionMatrixMin [.s, .c] = 2
+				.c -= 1
+			else
+				.s -= 1
+				.c -= 1
+			endif
+		endwhile
+	
+		# Associate Phonemes to Chunks
+		# Determine targets
+		# Minimum distance
+		.lastSyll = -1
+		.l = 1
+		for .t to .numPhonTargets
+			.minDistance = 10^6
+			# If this is a new syllable, insert break
+			.s = syllable [.t, 1]
+			if .s > 1 and .s <> .lastSyll
+				.lastSyll = .s
+				vowelTarget.f1_list [.l] = -1
+				vowelTarget.f2_list [.l] = -1
+				vowelTarget.f3_list [.l] = -1
+				vowelTarget.t_list [.l] = -1
+				.l += 1			
+			endif
+			for .c to .numChunks
+				if .s = .syllableChunksMin [.c]
+					if distance [.t, .c] < .minDistance
+						.minDistance = distance [.t, .c]
+						vowelTarget.f1_list [.l] = f1_table[.t,.c]
+						vowelTarget.f2_list [.l] = f2_table[.t,.c]
+						vowelTarget.f3_list [.l] = f3_table[.t,.c]
+						vowelTarget.t_list [.l] = t_table[.t,.c]
+					endif
+				endif
+			endfor
+			.l += 1
+		endfor
+		# Add closing syllable
+		vowelTarget.f1_list [.l] = -1
+		vowelTarget.f2_list [.l] = -1
+		vowelTarget.f3_list [.l] = -1
+		vowelTarget.t_list [.l] = -1
+	else
+		# Fill cost matrix
+		# Mean Distance
+		.c_cost = 2
+		.s_cost = 2
+		.diagonal_cost = 1
+		for .s to .numSyllables
+			for .c to .numChunks
+				.dc = distanceSyllablesMean [.s, .c]
+				if .s > 1 or .c > 1
+					if .s > 1
+						.cPrevS = .costSyllMatrixMean [.s - 1, .c] + .dc * .s_cost
+					else
+						.cPrevS = 10^10
+					endif
+					if .c > 1
+						.cPrevC = .costSyllMatrixMean [.s, .c - 1] + .dc * .c_cost
+					else
+						.cPrevC = 10^10
+					endif
+					if .s > 1 and .c > 1
+						.cDiagonal = .costSyllMatrixMean [.s - 1, .c - 1] + .dc * .diagonal_cost
+					else
+						.cDiagonal = 10^10
+					endif
+					.minCost =  min(.cPrevS, .cPrevC, .cDiagonal)
+					if .cPrevS = .minCost or .c <= 1
+						.directionMatrixMean [.s, .c] = 1
+					elsif .cPrevC = .minCost or .s <= 1
+						.directionMatrixMean [.s, .c] = 2
+					else
+						.directionMatrixMean [.s, .c] = 3
+					endif
+				else
+					.minCost = .dc
+					.directionMatrixMean [1, 1] = 3
+				endif
+				.costSyllMatrixMean [.s, .c] = .minCost
+			endfor
+		endfor
+	
+		# Associate Syllables to Chunks
+		# Mean distance
+		.s = .numSyllables
+		.c = .numChunks
+		while .s > 0 and .c > 0
+			.syllableChunksMean [.c] = .s
+			if .directionMatrixMean [.s, .c] = 1
+				.s -= 1
+			elsif .directionMatrixMean [.s, .c] = 2
+				.c -= 1
+			else
+				.s -= 1
+				.c -= 1
+			endif
+		endwhile
+
+		# Associate Phonemes to Chunks
+		# Determine targets
+		# Mean distance
+		.lastSyll = -1
+		.l = 1
+		for .t to .numPhonTargets
+			.minDistance = 10^6
+			# If this is a new syllable, insert break
+			.s = syllable [.t, 1]
+			if .s > 1 and .s <> .lastSyll
+				.lastSyll = .s
+				vowelTarget.f1_list [.l] = -1
+				vowelTarget.f2_list [.l] = -1
+				vowelTarget.f3_list [.l] = -1
+				vowelTarget.t_list [.l] = -1
+				.l += 1			
+			endif
+			for .c to .numChunks
+				if .s = .syllableChunksMean [.c]
+					if distance [.t, .c] < .minDistance
+						.minDistance = distance [.t, .c]
+						vowelTarget.f1_list [.l] = f1_table[.t,.c]
+						vowelTarget.f2_list [.l] = f2_table[.t,.c]
+						vowelTarget.f3_list [.l] = f3_table[.t,.c]
+						vowelTarget.t_list [.l] = t_table[.t,.c]
+					endif
+				endif
+			endfor
+			.l += 1
+		endfor
+		.last = .l - 1
+	endif
+	vowelTarget.list_length = .last
+endproc
+
+# 
+# The dptrack DP tracker does not correctly resolve multiple targets
+# in the same chunk, e.g., diphtongs and triphthongs.
+# This procedure will try to correct the targets if their time order 
+# in the lists is different then in the original targets
+# 
+# Uses and changes global variables:
+# vowelTarget.t_list, vowelTarget.f1_list, vowelTarget.f2_list
+# 
+# 
+procedure reorder_multi_targets .sp$, .formants, .syllableKernels, .gendert$, .f1_targets$, .f2_targets$, .f3_targets$
+		
+	# If phonemes are ordered wrong, determine correct targets.
+	# STILL HAS TO BE DONE!!!
+	for .i from 2 to vowelTarget.list_length
+		.t1 = vowelTarget.t_list [.i - 1]
+		.t2 = vowelTarget.t_list [.i]
 		if .t1 > 0 and .t2 > 0 and .t1 > .t2
-			.tmp = f1_list [.i]
-			f1_list [.i] = f1_list [.i + 1]
-			f1_list [.i + 1] = .tmp
+			# Find chunks
+			selectObject: .syllableKernels
+			.numIntervals = Get number of intervals: 1
+			# Remember, times are wrong!
+			.interval1 = Get interval at time: 1, .t2
+			.interval2 = Get interval at time: 1, .t1
+			# Make sure the target is inside the Vowel chunks
+			if .interval1 <> .interval2
+				.lab$ = Get label of interval: 1, .interval1
+				while .lab$ <> "Vowel" and .interval1 < .numIntervals
+					.interval1 += 1
+					.lab$ = Get label of interval: 1, .interval1
+				endwhile
+				.start = Get start time of interval: 1, .interval1
+				.lab$ = Get label of interval: 1, .interval2
+				while .lab$ <> "Vowel" and .interval2 > 1
+					.interval2 -= 1
+					.lab$ = Get label of interval: 1, .interval2
+				endwhile
+				.end = Get end time of interval: 1, .interval2
+			else
+				.start = Get start time of interval: 1, .interval1
+				.end = Get end time of interval: 1, .interval1
+			endif			
 			
-			.tmp = f2_list [.i]
-			f2_list [.i] = f2_list [.i + 1]
-			f2_list [.i + 1] = .tmp
+			# Add a new tier with only a single interval
+			selectObject: .syllableKernels
+			Insert interval tier: 1, "Vowel"
+			Insert boundary: 1, .start
+			Insert boundary: 1, .end
+			Set interval text: 1, 2, "Vowel"
 			
-			.tmp = t_list [.i]
-			t_list [.i] = t_list [.i + 1]
-			t_list [.i + 1] = .tmp
-		endif		
+			# Get targets
+			@extract_target_i: .f1_targets$, .i-1
+			.f1_value [1] = extract_target_i.value
+			@extract_target_i: .f2_targets$, .i-1
+			.f2_value [1] = extract_target_i.value
+			@extract_target_i: .f3_targets$, .i-1
+			.f3_value [1] = extract_target_i.value
+			
+			@extract_target_i: .f1_targets$, .i
+			.f1_value [2] = extract_target_i.value
+			@extract_target_i: .f2_targets$, .i
+			.f2_value [2] = extract_target_i.value
+			@extract_target_i: .f3_targets$, .i
+			.f3_value [2] = extract_target_i.value
+			
+			############################################################
+			# 
+			# Compare two orders of finding the two targets in the same
+			# chunk:
+			# 1) Find the closest approach to the first target, then
+			#    find the second target after the first
+			# 2) Find the closest approach to the second target, then
+			#    find the first target *before* the second
+			# 
+			# Compare the combined squared distances. Take the smallest
+			# 
+			############################################################
+			
+			# STEP 1: Find the closest approach in the chunk
+			
+			# Front to back
+			# Target 1
+			@get_closest_vowels: .sp$, .formants, .syllableKernels, .start, .gendert$, .f1_value[1], .f2_value[1]
+			.f2b_f1_list [1] = get_closest_vowels.f1_list [1]
+			.f2b_f2_list [1] = get_closest_vowels.f2_list [1]
+			.f2b_f3_list [1] = get_closest_vowels.f3_list [1]
+			if get_closest_vowels.t_list [1] < .end - 0.01
+				.f2b_t_list [1] = get_closest_vowels.t_list [1]
+			else
+				.f2b_t_list [1] = .end - 0.01
+			endif
+			.f2b_distance [1] = get_closest_vowels.distance_list [1]
+
+			
+			# Back to front
+			# Target 2
+			@get_closest_vowels: .sp$, .formants, .syllableKernels, .start, .gendert$, .f1_value[2], .f2_value[2]
+			.b2f_f1_list [2] = get_closest_vowels.f1_list [1]
+			.b2f_f2_list [2] = get_closest_vowels.f2_list [1]
+			.b2f_f3_list [2] = get_closest_vowels.f3_list [1]
+			if get_closest_vowels.t_list [1] > .start + 0.01
+				.b2f_t_list [2] = get_closest_vowels.t_list [1]
+			else
+				.b2f_t_list [2] = .start + 0.01
+			endif
+			.b2f_distance [2] = get_closest_vowels.distance_list [1]
+
+			# STEP 2: Find the closest approach in the remainder of the chunk
+			
+			# Change boundary
+			# Front to back
+			# Add a new tier with only a single interval
+
+			selectObject: .syllableKernels
+			Insert interval tier: 1, "Vowel"
+			Insert boundary: 1, .f2b_t_list [1]
+			Insert boundary: 1, .end
+			Set interval text: 1, 2, "Vowel"
+
+			# Target 2
+			@get_closest_vowels: .sp$, .formants, .syllableKernels, .start, .gendert$, .f1_value[2], .f2_value[2]
+			.f2b_f1_list [2] = get_closest_vowels.f1_list [1]
+			.f2b_f2_list [2] = get_closest_vowels.f2_list [1]
+			.f2b_f3_list [2] = get_closest_vowels.f3_list [1]
+			.f2b_t_list [2] = get_closest_vowels.t_list [1]
+			.f2b_distance [2] = get_closest_vowels.distance_list [1]
+			# Remove temporary tier
+			selectObject: .syllableKernels
+			Remove tier: 1
+			
+			# Back to front
+			# Add a new tier with only a single interval
+			selectObject: .syllableKernels
+			Insert interval tier: 1, "Vowel"
+			Insert boundary: 1, .start
+			Insert boundary: 1, .b2f_t_list [2]
+			Set interval text: 1, 2, "Vowel"
+
+			# Target 1
+			@get_closest_vowels: .sp$, .formants, .syllableKernels, .start, .gendert$, .f1_value[1], .f2_value[1]
+			.b2f_f1_list [1] = get_closest_vowels.f1_list [1]
+			.b2f_f2_list [1] = get_closest_vowels.f2_list [1]
+			.b2f_f3_list [1] = get_closest_vowels.f3_list [1]
+			.b2f_t_list [1] = get_closest_vowels.t_list [1]
+			.b2f_distance [1] = get_closest_vowels.distance_list [1]
+			# Remove temporary tier
+			selectObject: .syllableKernels
+			Remove tier: 1
+
+			# Compare and assign
+			.f2b_distanceSQ = .f2b_distance [1] ** 2 + .f2b_distance [2] ** 2
+			.b2f_distanceSQ = .b2f_distance [1] ** 2 + .b2f_distance [2] ** 2
+			if  .f2b_distanceSQ <= .b2f_distanceSQ
+				vowelTarget.f1_list [.i - 1] = .f2b_f1_list [1]
+				vowelTarget.f2_list [.i - 1] = .f2b_f2_list [1]
+				vowelTarget.f3_list [.i - 1] = .f2b_f3_list [1]
+				vowelTarget.t_list [.i - 1] = .f2b_t_list [1]
+				
+				vowelTarget.f1_list [.i] = .f2b_f1_list [2]
+				vowelTarget.f2_list [.i] = .f2b_f2_list [2]
+				vowelTarget.f3_list [.i] = .f2b_f3_list [2]
+				vowelTarget.t_list [.i] = .f2b_t_list [2]
+			else
+				vowelTarget.f1_list [.i - 1] = .b2f_f1_list [1]
+				vowelTarget.f2_list [.i - 1] = .b2f_f2_list [1]
+				vowelTarget.f3_list [.i - 1] = .b2f_f3_list [1]
+				vowelTarget.t_list [.i - 1] = .b2f_t_list [1]
+				
+				vowelTarget.f1_list [.i] = .b2f_f1_list [2]
+				vowelTarget.f2_list [.i] = .b2f_f2_list [2]
+				vowelTarget.f3_list [.i] = .b2f_f3_list [2]
+				vowelTarget.t_list [.i] = .b2f_t_list [2]
+			endif
+			# Remove temporary tier
+			selectObject: .syllableKernels
+			Remove tier: 1
+		endif
 	endfor
+	
 endproc
